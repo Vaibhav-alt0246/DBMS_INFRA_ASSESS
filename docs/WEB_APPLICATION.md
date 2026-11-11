@@ -1,0 +1,45 @@
+# InfraAssess web application
+
+## Architecture
+
+The FastAPI service in `backend/` is the API boundary. It uses psycopg 3 with parameterized SQL against PostgreSQL, which remains authoritative. CRUD routes map to the existing tables and allow PostgreSQL foreign-key, check, trigger, and uniqueness rules to decide whether a mutation succeeds. The work-order completion route calls the existing `sp_complete_work_order` procedure; it does not bypass completion triggers. The semantic-search route reuses `vector_db` and reloads authoritative incident details from PostgreSQL.
+
+The Next.js application in `frontend/` is a responsive overview dashboard with live dashboard metrics, incident monitoring, and natural-language search. The API supports the complete CRUD surface; management forms/pages can be extended using the same route contracts without duplicating persistence logic.
+
+## Setup
+
+Backend, from the repository root:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r backend/requirements.txt
+export PGDATABASE=infraassess_test
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+Frontend, in a second terminal:
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open `http://localhost:3000`. Node.js 20+ is recommended. Do not run the standalone Qdrant local CLI against `data/qdrant_storage` while the backend is running; local mode is single-process storage.
+
+## API routes
+
+`GET /api/health` reports API reachability and PostgreSQL/vector availability. `GET /api/dashboard` returns live counts. The following resources support list, retrieve, create, patch, and delete where PostgreSQL permits it: `locations`, `categories`, `components`, `technicians`, `assessments`, `incidents`, `work-orders`, `maintenance-records`, `sensor-readings`, and `maintenance-alerts`. Lists accept `limit`, `offset`, and optional `search`. `GET /api/audit-logs` is read-only. `POST /api/work-orders/{id}/complete` uses the existing stored procedure. `GET /api/search/incidents?query=...&limit=5` performs semantic search.
+
+Protected deletes return HTTP 409 with a historical-integrity message. No frontend success state is shown before the API confirms a mutation. Search scores are similarity rankings, not root-cause probabilities or recommendations.
+
+## Validation
+
+```bash
+python -m pytest backend/tests
+cd frontend && npm run typecheck && npm run build
+```
+
+The backend tests require FastAPI and are unit-level route checks. Run against a local database for integration validation; do not use seeded production records for destructive tests. The frontend must be able to reach the backend and its PostgreSQL/Qdrant dependencies for live data.
