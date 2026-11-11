@@ -14,7 +14,7 @@ erDiagram
     WorkOrder ||--o{ MaintenanceRecord : documents
     Technician ||--o{ MaintenanceRecord : performs
     Component ||--o{ SensorReading : produces
-    Component o|--o{ MaintenanceAlert : triggers
+    Component ||--o{ MaintenanceAlert : triggers
 
     Location { bigint location_id PK; varchar location_code UK; varchar name; varchar address; varchar region; }
     ComponentCategory { bigint category_id PK; varchar category_code UK; varchar name UK; text description; }

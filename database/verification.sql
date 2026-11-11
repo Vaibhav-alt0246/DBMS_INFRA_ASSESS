@@ -2,7 +2,7 @@
 
 -- Row counts should be: locations 3, categories 3, components 4, technicians 3,
 -- assessments 5, incidents 3, incident links 3, work orders 3, maintenance records 1,
--- readings 4, alerts 3, and audit logs 0 for the current seed.
+-- readings 4, alerts 1, and audit logs 0 for the baseline seed before triggers.
 WITH expected(table_name) AS (
     VALUES
         ('location'), ('component_category'), ('component'), ('technician'),

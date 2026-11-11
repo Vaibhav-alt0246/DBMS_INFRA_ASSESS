@@ -10,10 +10,12 @@ def main(argv=None):
     parser = argparse.ArgumentParser(); sub = parser.add_subparsers(dest='command', required=True)
     sub.add_parser('index'); sub.add_parser('status')
     s = sub.add_parser('search'); s.add_argument('--query', required=True); s.add_argument('--limit', type=int, default=5)
-    args = parser.parse_args(argv); settings = Settings.from_env(); provider = SentenceTransformerProvider(settings.model_name)
-    store = IncidentStore(settings.qdrant_path, settings.collection, provider.dimension)
+    args = parser.parse_args(argv); settings = Settings.from_env()
+    provider = None if args.command == 'status' else SentenceTransformerProvider(settings.model_name)
+    dimension = settings.dimension if provider is None else provider.dimension
+    store = IncidentStore(settings.qdrant_path, settings.collection, dimension)
     try:
-        if args.command == 'status': store.ensure_collection(); print(f'collection={settings.collection} dimension={provider.dimension} points={store.count()}'); return
+        if args.command == 'status': store.ensure_collection(); print(f'collection={settings.collection} dimension={dimension} points={store.count()}'); return
         with psycopg.connect(**settings.psycopg_kwargs()) as connection:
             if args.command == 'index':
                 indexed, failures = index_incidents(connection, store, provider); print(f'indexed={indexed} failures={failures} points={store.count()}')

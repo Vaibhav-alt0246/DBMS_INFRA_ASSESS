@@ -7,3 +7,7 @@ frontend/node_modules/
 frontend/.next/
 frontend/.env.local
 *.tsbuildinfo
+.pytest_tmp/
+frontend/.test-build/
+frontend/test-results/
+frontend/playwright-report/
