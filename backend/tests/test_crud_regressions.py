@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from psycopg.errors import ObjectNotInPrerequisiteState
 from backend.app import main
 
-client = TestClient(main.app)
+client = TestClient(main.app, headers={"Authorization": "Bearer test-admin"})
 
 def test_partial_patch_does_not_reset_defaults(monkeypatch):
     calls = []
@@ -55,8 +55,10 @@ def test_update_sends_sql_null(monkeypatch):
         def __enter__(self): return self
         def __exit__(self, *args): pass
         def execute(self, sql, params):
+            if sql.startswith('SELECT status'): return
             assert 'technician_id=%s' in sql
             assert params == (None, 1)
+        def fetchone(self): return ('PLANNED',)
         def fetchall(self): return [()]
     class Connection:
         def cursor(self): return Cursor()

@@ -8,7 +8,9 @@ class EmbeddingProvider(Protocol):
 class SentenceTransformerProvider:
     def __init__(self, model_name):
         from sentence_transformers import SentenceTransformer
-        self.model = SentenceTransformer(model_name)
+        import os
+        self.model_name = model_name
+        self.model = SentenceTransformer(model_name, local_files_only=os.getenv('EMBEDDING_OFFLINE', '0') == '1')
         self._dimension = int(self.model.get_sentence_embedding_dimension())
     @property
     def dimension(self): return self._dimension

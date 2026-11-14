@@ -1,5 +1,6 @@
 # InfraAssess — Project Handoff & Technical Guide
 
+> **2026-11-14 security/workflow update:** Configure per-user bearer credentials before using the console/API. Apply the versioned migration for existing databases, and run the scheduled worker for alerts/search. [Current operational instructions](docs/OPERATIONS.md) supersede the earlier unauthenticated and per-search indexing examples below.
 > **Current setup:** See [SETUP.md](docs/SETUP.md) for clean Windows/macOS setup and the ordered database installer. See [VERIFICATION.md](docs/VERIFICATION.md) for the latest measured checks and remaining environment-dependent verification. The handoff history below records earlier versions and results; the current code and these two guides take precedence.
 
 **Purpose:** Give a teammate enough context to understand the current InfraAssess implementation, run it locally, avoid damaging existing data, and continue development without rebuilding features that already exist.

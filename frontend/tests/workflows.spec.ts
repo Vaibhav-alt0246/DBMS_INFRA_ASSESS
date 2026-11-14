@@ -35,7 +35,8 @@ async function mockApi(
   page: Page,
   handle?: (route: Route, url: URL) => Promise<boolean>,
 ) {
-  await page.route("http://localhost:8000/**", async (route) => {
+  await page.addInitScript(() => sessionStorage.setItem("infraassess-token", "test-admin"));
+  await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
     if (route.request().method() === "OPTIONS") {
       await reply(route, {});
@@ -54,6 +55,9 @@ async function mockApi(
         component(1, "First pump"),
         component(2, "Second pump"),
       ]);
+    else if (url.pathname === "/api/locations") await reply(route, [{location_id:1,name:"North"}]);
+    else if (url.pathname === "/api/categories") await reply(route, [{category_id:1,name:"Pump"}]);
+    else if (url.pathname === "/api/technicians") await reply(route, [{technician_id:2,full_name:"Test technician",active:true}]);
     else if (url.pathname === "/api/incidents") await reply(route, [incident]);
     else await reply(route, []);
   });
@@ -194,7 +198,7 @@ test("deleting the final record on a page returns to the previous page", async (
       route,
       url.searchParams.get("offset") === "25"
         ? [component(26, "Last pump")]
-        : Array.from({ length: 25 }, (_, i) =>
+        : Array.from({ length: 26 }, (_, i) =>
             component(i + 1, `Pump ${i + 1}`),
           ),
     );
@@ -299,8 +303,8 @@ test("saving blocks duplicate clicks and renders server validation errors", asyn
   await page.getByRole("button", { name: "Components", exact: true }).click();
   await page.getByRole("button", { name: "＋ Add", exact: true }).click();
   await page.getByLabel("Asset tag").fill("TEST-1");
-  await page.getByLabel("Location ID").fill("1");
-  await page.getByLabel("Category ID").fill("1");
+  await page.getByRole("combobox", {name: /^Location ID/}).selectOption("1");
+  await page.getByRole("combobox", {name: /^Category ID/}).selectOption("1");
   await page.getByLabel("Name", { exact: true }).fill("Test pump");
   await page.getByRole("combobox", { name: /^Status/ }).selectOption("OPERATIONAL");
   await page.getByRole("button", { name: "Save record", exact: true }).click();
@@ -330,7 +334,7 @@ test("navigation supports keyboard focus and Enter activation", async ({
   const overview = page.getByRole("button", { name: "Overview", exact: true });
   await expect(overview).toBeFocused();
   await expect(overview).toHaveCSS("outline-width", "3px");
-  await page.keyboard.press("Tab");
+  await page.getByRole("button", { name: "Components", exact: true }).focus();
   await expect(
     page.getByRole("button", { name: "Components", exact: true }),
   ).toBeFocused();

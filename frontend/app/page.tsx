@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { request, RequestScope } from "./request";
 import { buildEditablePayload, localDateTime } from "./payload";
 const primaryKeys: Record<string, string> = {
+  "sensor-thresholds": "threshold_id",
   components: "component_id",
   incidents: "incident_id",
   technicians: "technician_id",
@@ -14,6 +15,9 @@ const primaryKeys: Record<string, string> = {
   "sensor-readings": "reading_id",
   "maintenance-alerts": "alert_id",
   "audit-logs": "audit_id",
+  "reports/health":"component_id",
+  "reports/failures":"component_id",
+  "reports/overdue":"work_order_id",
 };
 type Resource = {
   key: string;
@@ -28,6 +32,12 @@ type Resource = {
   }[];
 };
 const resources: Resource[] = [
+  { key: "sensor-thresholds", label: "Sensor thresholds", fields: [
+    {name:"component_id", label:"Component ID", type:"number"},
+    {name:"sensor_type", label:"Sensor type"}, {name:"unit", label:"Unit"},
+    {name:"min_value", label:"Minimum", type:"number", nullable:true},
+    {name:"max_value", label:"Maximum", type:"number", nullable:true},
+  ]},
   {
     key: "components",
     label: "Components",
@@ -212,6 +222,9 @@ const resources: Resource[] = [
     key: "maintenance-alerts",
     label: "Maintenance alerts",
     fields: [
+      {name:"owner_id", label:"Owner", type:"number", nullable:true},
+      {name:"remediation_work_order_id", label:"Remediation work order", type:"number", nullable:true},
+      {name:"verification_notes", label:"Verification notes (required to resolve)", type:"textarea", nullable:true},
       {
         name: "status",
         label: "Status",
@@ -254,13 +267,14 @@ function Form({
         ? { ...form }
         : buildEditablePayload(resource.fields, form);
       delete body.__complete;
+      if (resource.key === "incidents" && !initial?.__id && form.__component_id) body.component_ids = [Number(form.__component_id)];
       if (form.__complete) {
         await request(`/api/work-orders/${initial.__id}/complete`, {
           method: "POST",
           body: JSON.stringify({
             technician_id: Number(body.technician_id),
             action_taken: body.action_taken,
-            actual_cost: Number(body.actual_cost),
+            actual_cost: String(body.actual_cost),
             outcome: body.outcome,
             completed_at: new Date(body.completed_at).toISOString(),
             completion_notes: body.completion_notes,
@@ -291,7 +305,7 @@ function Form({
         resource.fields.map((f) => (
           <label key={f.name}>
             {f.label}
-            {f.type === "checkbox" ? (
+            {relations[f.name] ? <RelationInput label={f.label} name={f.name} value={form[f.name]} required={!f.nullable && !f.optional} onChange={value=>setForm({...form,[f.name]:value})} /> : f.type === "checkbox" ? (
               <input
                 type="checkbox"
                 checked={!!form[f.name]}
@@ -348,6 +362,7 @@ function Form({
             )}
           </label>
         ))}
+      {resource.key === "incidents" && !initial?.__id && <label>Affected component (optional)<RelationInput label="Affected component" name="component_id" value={form.__component_id} onChange={value=>setForm({...form,__component_id:value})}/></label>}
       {completing && (
         <>
           <div className="completion-context">
@@ -357,14 +372,7 @@ function Form({
           </div>
           <label>
             Technician ID
-            <input
-              required
-              type="number"
-              value={form.technician_id ?? ""}
-              onChange={(e) =>
-                setForm({ ...form, technician_id: e.target.value })
-              }
-            />
+            <RelationInput label="Technician ID" name="technician_id" value={form.technician_id} required onChange={value=>setForm({...form,technician_id:value})} />
           </label>
           <label>
             Action taken / maintenance notes
@@ -456,7 +464,7 @@ function Form({
   );
 }
 function Management({ resource }: { resource: Resource }) {
-  const readOnly = resource.key === "audit-logs";
+  const readOnly = resource.key === "audit-logs" || resource.key.startsWith("reports/");
   const generated = resource.key === "maintenance-alerts";
   const [items, setItems] = useState<any[]>([]),
     [selected, setSelected] = useState<any>(),
@@ -466,6 +474,13 @@ function Management({ resource }: { resource: Resource }) {
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
     [deleting, setDeleting] = useState(false);
+  const [hasNext, setHasNext] = useState(false);
+  const [total,setTotal]=useState<number>();
+  const [sort,setSort]=useState("");
+  const [statusFilter,setStatusFilter]=useState("");
+  const [severityFilter,setSeverityFilter]=useState("");
+  const [from,setFrom]=useState("");
+  const [to,setTo]=useState("");
   const [offset, setOffset] = useState(0),
     [appliedSearch, setAppliedSearch] = useState("");
   const reads = useRef(new RequestScope());
@@ -481,12 +496,15 @@ function Management({ resource }: { resource: Resource }) {
     setLoading(true);
     setError("");
     try {
-      const records = await request(
-        `/api/${resource.key}?limit=25&offset=${offset}&search=${encodeURIComponent(appliedSearch)}`,
+      const result = await request(
+        `/api/${resource.key}?limit=26&offset=${offset}&search=${encodeURIComponent(appliedSearch)}${!readOnly && !generated ? `&page=true${sort ? `&sort=${encodeURIComponent(sort)}` : ""}${statusFilter ? `&status=${encodeURIComponent(statusFilter)}` : ""}${severityFilter ? `&severity=${encodeURIComponent(severityFilter)}` : ""}${from ? `&date_from=${from}` : ""}${to ? `&date_to=${to}` : ""}` : ""}`,
         { signal: controller.signal },
       );
       if (reads.current.isCurrent(controller)) {
-        setItems(records);
+        const records = Array.isArray(result) ? result : result.items;
+        setTotal(result.total);
+        setHasNext(records.length > 25);
+        setItems(records.slice(0, 25));
         setSelected((current: any) => {
           if (!current) return current;
           const fresh = records.find(
@@ -507,7 +525,7 @@ function Management({ resource }: { resource: Resource }) {
     setAdd(false);
     load();
     return () => reads.current.cancel();
-  }, [resource.key, offset, appliedSearch]);
+  }, [resource.key, offset, appliedSearch, sort, statusFilter, severityFilter, from, to]);
   async function remove(id: number) {
     if (
       deleting ||
@@ -552,6 +570,13 @@ function Management({ resource }: { resource: Resource }) {
         )}
       </header>
       {error && <div className="error">{error}</div>}
+      {!readOnly && !generated && <div className="toolbar">
+        <label>Sort<select aria-label="Sort" value={sort} onChange={e=>{setSort(e.target.value);setOffset(0);}}><option value="">Newest ID</option>{resource.fields.map(f=><option key={f.name} value={f.name}>{f.label}</option>)}</select></label>
+        {resource.fields.some(f=>f.name==="status") && <label>Status<input value={statusFilter} onChange={e=>{setStatusFilter(e.target.value);setOffset(0);}} placeholder="e.g. OPEN"/></label>}
+        {resource.key==="incidents" && <label>Severity<select value={severityFilter} onChange={e=>{setSeverityFilter(e.target.value);setOffset(0);}}><option value="">All</option>{["LOW","MEDIUM","HIGH","CRITICAL"].map(x=><option key={x}>{x}</option>)}</select></label>}
+        {resource.fields.some(f=>["reported_at","assessed_at","recorded_at","performed_at","planned_start","installed_on"].includes(f.name)) && <><label>From<input type="date" value={from} onChange={e=>{setFrom(e.target.value);setOffset(0);}}/></label><label>Before<input type="date" value={to} onChange={e=>{setTo(e.target.value);setOffset(0);}}/></label></>}
+        {total!==undefined && <span>{total} records</span>}
+      </div>}
       <div className="toolbar">
         <input
           placeholder={`Search ${resource.label.toLowerCase()}…`}
@@ -574,7 +599,7 @@ function Management({ resource }: { resource: Resource }) {
         <span>Page {offset / 25 + 1}</span>
         <button
           className="ghost"
-          disabled={loading || items.length < 25}
+          disabled={loading || !hasNext}
           onClick={() => setOffset(offset + 25)}
         >
           Next
@@ -651,7 +676,7 @@ function Management({ resource }: { resource: Resource }) {
             <>
               <div className="panel-head">
                 <h2>Record detail</h2>
-                {!readOnly && (
+                {!readOnly && !(resource.key === "work-orders" && ["COMPLETED", "CANCELLED"].includes(selected.status)) && (
                   <button
                     className="link"
                     onClick={() => setEdit({ ...selected, __id: selected.id })}
@@ -660,6 +685,7 @@ function Management({ resource }: { resource: Resource }) {
                   </button>
                 )}
               </div>
+              {resource.key === "incidents" && <IncidentLinks incidentId={selected.id} />}
               {Object.entries(selected)
                 .filter(([k]) => k !== "id")
                 .map(([k, v]) => (
@@ -812,7 +838,9 @@ function Overview() {
                 </div>
                 <div>
                   <b>{x.title}</b>
-                  <p>{x.description}</p>
+                  <p><Highlight text={x.description} query={searched ? query : ""} /></p>
+                  {x.components && <small>Affected assets: {x.components}</small>}
+                  {x.search_mode && <small>Search mode: {x.search_mode}</small>}
                   {x.resolutions && (
                     <small className="resolution">
                       Historical resolution: {x.resolutions}
@@ -832,7 +860,13 @@ function Overview() {
 }
 export default function Home() {
   const [page, setPage] = useState("overview");
-  const resource = resources.find((r) => r.key === page);
+  const [token, setToken] = useState("");
+  const [connected, setConnected] = useState(false);
+  useEffect(() => { setConnected(!!sessionStorage.getItem("infraassess-token")); }, []);
+  const resource = resources.find((r) => r.key === page) || (page.startsWith("reports/") ? {key:page,label:page.split("/")[1]+" report",fields:[]} : undefined);
+  if (!connected) return <main><form className="form" onSubmit={e => {e.preventDefault(); sessionStorage.setItem("infraassess-token",token); setConnected(true);}}>
+    <h1>InfraAssess sign in</h1><label>Access token<input type="password" required value={token} onChange={e=>setToken(e.target.value)} autoComplete="off" /></label><button>Connect</button>
+  </form></main>;
   return (
     <main>
       <aside>
@@ -848,6 +882,8 @@ export default function Home() {
           >
             Overview
           </button>
+          {["health", "failures", "overdue"].map(report => <button key={report} onClick={()=>setPage(`reports/${report}`)}>{report} report</button>)}
+          <button onClick={()=>{sessionStorage.removeItem("infraassess-token");setConnected(false);setToken("");}}>Sign out</button>
           {resources.map((r) => (
             <button
               key={r.key}
@@ -887,3 +923,26 @@ export default function Home() {
 }
 // completion action is rendered by the work-order detail form
 // The work-order editor exposes the dedicated completion action inside its detail form.
+
+const relations: Record<string,string> = {location_id:"locations",category_id:"categories",component_id:"components",technician_id:"technicians",incident_id:"incidents",work_order_id:"work-orders",owner_id:"technicians",remediation_work_order_id:"work-orders"};
+function RelationInput({name,value,onChange,required,label}:{name:string,value:any,onChange:(v:string)=>void,required?:boolean,label?:string}) {
+ const [query,setQuery]=useState(""); const [options,setOptions]=useState<any[]>([]); const [error,setError]=useState("");
+ useEffect(()=>{const controller=new AbortController(); request(`/api/${relations[name]}?limit=100&search=${encodeURIComponent(query)}`,{signal:controller.signal}).then(rows=>{setOptions(rows);setError("");}).catch(e=>{if(!controller.signal.aborted)setError(e.message);});return()=>controller.abort();},[name,query]);
+ const pk=primaryKeys[relations[name]];
+ return <span><input aria-label={`Search ${name}`} placeholder="Search records by name or code" value={query} onChange={e=>setQuery(e.target.value)}/><select aria-label={label||name} required={required} value={value??""} onChange={e=>onChange(e.target.value)}>
+ <option value="">Select…</option>{value && !options.some(x=>String(x[pk])===String(value)) && <option value={value}>Current record #{value}</option>}
+ {options.map(x=><option key={x[pk]} value={x[pk]} disabled={x.active===false}>{x.name||x.full_name||x.title||x.work_order_number} — {x.asset_tag||x.employee_code||x.incident_number||x[pk]}</option>)}
+ </select>{error && <small className="error">{error}</small>}</span>;
+}
+function IncidentLinks({incidentId}:{incidentId:number}) {
+ const [links,setLinks]=useState<any[]>([]),[component,setComponent]=useState(""),[error,setError]=useState("");
+ const load=()=>request(`/api/incidents/${incidentId}/components`).then(setLinks).catch(e=>setError(e.message));
+ useEffect(()=>{load();},[incidentId]);
+ async function change(id:string,method:string) {try {await request(`/api/incidents/${incidentId}/components/${id}`,{method,...(method==="PUT"?{body:JSON.stringify({impact_type:"PRIMARY"})}:{})});await load();}catch(e){setError((e as Error).message);}}
+ return <section><h3>Affected components</h3>{error && <p className="error">{error}</p>}{links.map(x=><p key={x.component_id}>{x.name} [{x.asset_tag}] <button onClick={()=>change(String(x.component_id),"DELETE")}>Unlink</button></p>)}<RelationInput name="component_id" value={component} onChange={setComponent}/><button disabled={!component} onClick={()=>change(component,"PUT")}>Link component</button></section>;
+}
+
+function Highlight({text,query}:{text:string,query:string}) {
+ const words=query.toLowerCase().split(/\s+/).filter(Boolean);
+ return <>{String(text||"").split(/(\s+)/).map((word,index)=>words.some(q=>word.toLowerCase().includes(q)) ? <mark key={index}>{word}</mark> : word)}</>;
+}

@@ -1,3 +1,7 @@
+# Current verification
+
+See [2026-11-14 audit remediation and measured results](AUDIT_REMEDIATION.md) for the current revision. The report below describes the earlier revision and its then-unverified integrations.
+
 # Project verification — 2026-11-11
 
 Reviewed the README, backend, frontend, vector package, schema, seeds, routines, triggers, SQL checks and design documentation. The starting checkout was commit `ebff45a` with no tracked changes.

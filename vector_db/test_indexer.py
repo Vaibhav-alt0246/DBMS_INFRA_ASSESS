@@ -19,7 +19,7 @@ def test_incremental_index_updates_and_prunes(monkeypatch):
     embedder = Embedder()
     store = IncidentStore('', 'test', 2, client=QdrantClient(':memory:'))
     try:
-        assert indexer.index_incidents(None, store, embedder) == (2, 0)
+        assert indexer.index_incidents(None, store, embedder) == indexer.IndexStats(scanned=2, embedded=2, upserted=2)
         indexer.index_incidents(None, store, embedder)
         assert len(embedder.calls) == 1
         docs[:] = [document(2, 'Repaired pump')]
@@ -51,7 +51,7 @@ def test_large_index_is_embedded_and_upserted_in_bounded_batches(monkeypatch):
     embedder = Embedder()
     store = IncidentStore('', 'test', 2, client=QdrantClient(':memory:'))
     try:
-        assert indexer.index_incidents(None, store, embedder) == (130, 0)
+        assert indexer.index_incidents(None, store, embedder) == indexer.IndexStats(scanned=130, embedded=130, upserted=130)
         assert [len(call) for call in embedder.calls] == [64, 64, 2]
         assert store.count() == 130
     finally: store.close()

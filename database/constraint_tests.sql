@@ -73,13 +73,12 @@ BEGIN
     BEGIN
         DELETE FROM component WHERE component_id = v_component_id;
         RAISE EXCEPTION 'Unexpected success: component with historical records was deleted';
-    -- ON DELETE RESTRICT reports SQLSTATE 23001 (restrict_violation), even
-    -- though the rejected dependency is a foreign-key constraint.
-    EXCEPTION WHEN restrict_violation THEN
+    -- PostgreSQL reports foreign_key_violation for this RESTRICT dependency.
+    EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN
         GET STACKED DIAGNOSTICS
             v_constraint_name = CONSTRAINT_NAME,
             v_returned_sqlstate = RETURNED_SQLSTATE;
-        IF v_returned_sqlstate IS DISTINCT FROM '23001' THEN
+        IF v_returned_sqlstate NOT IN ('23503', '23001') THEN
             RAISE EXCEPTION 'Unexpected SQLSTATE while deleting component: %', v_returned_sqlstate;
         END IF;
         IF v_constraint_name IS DISTINCT FROM 'assessment_component_id_fkey' THEN
@@ -101,11 +100,11 @@ BEGIN
     BEGIN
         DELETE FROM incident WHERE incident_id = v_incident_id;
         RAISE EXCEPTION 'Unexpected success: incident with dependent records was deleted';
-    EXCEPTION WHEN restrict_violation THEN
+    EXCEPTION WHEN foreign_key_violation OR restrict_violation THEN
         GET STACKED DIAGNOSTICS
             v_constraint_name = CONSTRAINT_NAME,
             v_returned_sqlstate = RETURNED_SQLSTATE;
-        IF v_returned_sqlstate IS DISTINCT FROM '23001' THEN
+        IF v_returned_sqlstate NOT IN ('23503', '23001') THEN
             RAISE EXCEPTION 'Unexpected SQLSTATE while deleting incident: %', v_returned_sqlstate;
         END IF;
         IF v_constraint_name IS DISTINCT FROM 'incident_component_incident_id_fkey' THEN

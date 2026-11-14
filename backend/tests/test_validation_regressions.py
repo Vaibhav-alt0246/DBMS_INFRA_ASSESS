@@ -23,7 +23,7 @@ from backend.app.schemas import CompletionIn
     ('maintenance-alerts', {'status': 'DELETED'}),
 ])
 def test_invalid_updates_fail_before_database_access(resource, body):
-    assert TestClient(app).patch(f'/api/{resource}/1', json=body).status_code == 422
+    assert TestClient(app, headers={"Authorization": "Bearer test-admin"}).patch(f'/api/{resource}/1', json=body).status_code == 422
 
 def test_money_is_kept_as_exact_decimal():
     value = CompletionIn(technician_id=1, action_taken='Repair', actual_cost='9999999999.99', outcome='SUCCESSFUL', completed_at='2026-11-11T10:30:00Z', completion_notes='Done')

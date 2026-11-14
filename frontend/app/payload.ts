@@ -10,6 +10,11 @@ export function buildEditablePayload(
       const value = values[field.name];
       if (value === undefined) return [];
       if (value === "") return field.nullable ? [[field.name, null]] : [];
+      if (["estimated_cost", "actual_cost", "reading_value", "min_value", "max_value"].includes(field.name) && value !== null) {
+        const decimal = String(value);
+        if (!/^-?\d+(\.\d+)?$/.test(decimal)) throw Error(`${field.name} must be a decimal number.`);
+        return [[field.name, decimal]];
+      }
       if (field.type === "number" && value !== null) {
         const number = Number(value);
         if (!Number.isFinite(number))

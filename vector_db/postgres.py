@@ -35,7 +35,8 @@ def fetch_incidents_by_ids(connection, ids):
     with connection.cursor() as cur:
         cur.execute("""
         SELECT i.incident_id, i.incident_number, i.title, i.description, i.severity, i.status,
-               COALESCE(r.resolutions, '') AS resolutions
+               COALESCE(r.resolutions, '') AS resolutions,
+               (SELECT string_agg(c.name || ' [' || c.asset_tag || ']', '; ' ORDER BY c.component_id) FROM incident_component ic JOIN component c USING(component_id) WHERE ic.incident_id=i.incident_id) AS components
         FROM incident i LEFT JOIN (
           SELECT w.incident_id, string_agg(DISTINCT concat_ws(' | ', w.completion_notes, m.action_taken, m.outcome), '; ') AS resolutions
           FROM work_order w LEFT JOIN maintenance_record m USING (work_order_id)

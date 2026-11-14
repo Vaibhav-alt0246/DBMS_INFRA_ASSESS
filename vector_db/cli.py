@@ -18,7 +18,7 @@ def main(argv=None):
         if args.command == 'status': store.ensure_collection(); print(f'collection={settings.collection} dimension={dimension} points={store.count()}'); return
         with psycopg.connect(**settings.psycopg_kwargs()) as connection:
             if args.command == 'index':
-                indexed, failures = index_incidents(connection, store, provider); print(f'indexed={indexed} failures={failures} points={store.count()}')
+                stats = index_incidents(connection, store, provider); print(f'scanned={stats.scanned} embedded={stats.embedded} upserted={stats.upserted} removed={stats.removed} failures={stats.failures} points={store.count()}')
             else:
                 for result in search_incidents(connection, store, provider, args.query, args.limit): print(result)
     finally: store.close()

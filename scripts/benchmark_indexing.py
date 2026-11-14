@@ -35,11 +35,11 @@ def main():
         with patch('vector_db.indexer.fetch_incidents', return_value=docs):
             tracemalloc.start()
             started = time.perf_counter()
-            indexed, failures = index_incidents(None, store, SyntheticEmbedder(), batch_size=size)
+            stats = index_incidents(None, store, SyntheticEmbedder(), batch_size=size)
             elapsed = time.perf_counter() - started
             _, peak = tracemalloc.get_traced_memory()
             tracemalloc.stop()
-        results.append({'incidents': indexed, 'failures': failures, 'batch_size': size,
+        results.append({'incidents': stats.scanned, 'failures': stats.failures, 'batch_size': size,
                         'largest_upsert': store.largest_batch, 'peak_python_mib': round(peak / 1024**2, 2),
                         'elapsed_seconds': round(elapsed, 3)})
     print(json.dumps(results, indent=2))

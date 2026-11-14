@@ -1,0 +1,64 @@
+name: verify
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: infraassess_test
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: test
+      PGDATABASE: infraassess_test
+      TEST_DATABASE_URL: postgresql://postgres:test@localhost:5432/infraassess_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm, cache-dependency-path: frontend/package-lock.json}
+      - run: pip install -r requirements-lock.txt
+      - run: psql -X -v ON_ERROR_STOP=1 -f database/install.sql
+      - run: |
+          for test in constraint_tests trigger_tests advanced_sql_tests transaction_tests; do
+            psql -X -v ON_ERROR_STOP=1 -f database/$test.sql
+          done
+      - run: python -m pytest -q backend/tests vector_db
+      - run: npm ci && npm test && npm run typecheck && npm run build
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium && npx playwright test workflows.spec.ts
+        working-directory: frontend
+
+      - name: Build and evaluate persistent vectors, including offline restart
+        run: |
+          python -m vector_db.cli index
+          python -m vector_db.search_evaluation
+          EMBEDDING_OFFLINE=1 HF_HUB_OFFLINE=1 python -m vector_db.cli search --query 'pump seal leakage' --limit 3
+      - name: Unmocked browser workflows
+        env:
+          LIVE_BROWSER: '1'
+          INFRAASSESS_CREDENTIALS: '{"db09d473d4b6461b91bfa47e4fed3ef55e0234df4132ca7a827b0a69e8927cac":{"name":"ci-admin","role":"admin"}}'
+        run: |
+          python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 > /tmp/infra-api.log 2>&1 &
+          for attempt in $(seq 1 30); do curl -fsS http://127.0.0.1:8000/api/ready && break; sleep 1; done
+          cd frontend
+          npx playwright test live.spec.ts
+  portability:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - run: pip install -r requirements-lock.txt
+      - run: python -m pytest -q backend/tests vector_db

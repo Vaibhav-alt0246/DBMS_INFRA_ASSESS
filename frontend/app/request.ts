@@ -1,9 +1,11 @@
 import { formatApiError } from "./error-format";
 
-const API = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+const API = process.env.NEXT_PUBLIC_API_BASE_URL || "";
 
 export async function request(path: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers);
+  const token = sessionStorage.getItem("infraassess-token");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   if (init.body && !headers.has("Content-Type"))
     headers.set("Content-Type", "application/json");
   const response = await fetch(`${API}${path}`, { ...init, headers });

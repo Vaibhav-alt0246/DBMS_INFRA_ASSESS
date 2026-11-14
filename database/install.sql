@@ -9,3 +9,4 @@
 \ir functions.sql
 \ir procedures.sql
 \ir demo_incidents.sql
+\ir migrations/001_audit_remediation.sql

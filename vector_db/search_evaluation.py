@@ -33,6 +33,8 @@ def main():
                 hit = bool(expected.intersection(numbers)); hits += int(hit)
                 print(f"{'PASS' if hit else 'MISS'} | {query} | top3={numbers} | expected_any={sorted(expected)}")
         print(f"top3_hit_rate={hits}/{len(EVALUATION_QUERIES)} ({hits / len(EVALUATION_QUERIES):.1%})")
+        if hits != len(EVALUATION_QUERIES):
+            raise SystemExit('Semantic relevance regression: expected all seeded top-3 queries to hit')
     finally:
         store.close()
 

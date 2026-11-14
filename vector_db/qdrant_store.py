@@ -1,9 +1,10 @@
+import os
 from qdrant_client import QdrantClient, models
 
 class IncidentStore:
     def __init__(self, path, collection, dimension, client=None):
         self.collection = collection; self.dimension = dimension
-        self.client = client or QdrantClient(path=str(path))
+        self.client = client or (QdrantClient(url=os.environ['QDRANT_URL'], api_key=os.getenv('QDRANT_API_KEY')) if os.getenv('QDRANT_URL') else QdrantClient(path=str(path)))
     def close(self): self.client.close()
     def ensure_collection(self):
         if not self.client.collection_exists(self.collection):

@@ -52,7 +52,8 @@ INSERT INTO incident_component (incident_id,component_id,impact_type,notes)
 SELECT i.incident_id,c.component_id,v.impact_type,v.notes FROM (VALUES
  ('INC-2025-001','AST-BR-001','PRIMARY','Bearing is the directly affected asset.'),
  ('INC-2025-001','AST-BR-002','SECONDARY','Adjacent joint requires observation.'),
- ('INC-2025-002','AST-PU-001','PRIMARY','Seal leakage confirmed.')
+ ('INC-2025-002','AST-PU-001','PRIMARY','Seal leakage confirmed.'),
+ ('INC-2025-003','AST-BR-002','PRIMARY','Expansion joint inspected.')
 ) v(incident_number,asset_tag,impact_type,notes)
 JOIN incident i USING (incident_number) JOIN component c USING (asset_tag)
 ON CONFLICT DO NOTHING;

@@ -15,7 +15,7 @@ from backend.app import main
     ('CANCELLED', 'IN_PROGRESS', 409),
     (None, 'ASSIGNED', 404),
     ('PLANNED', 'ASSIGNED', 200),
-    ('COMPLETED', 'COMPLETED', 200),
+    ('COMPLETED', 'COMPLETED', 409),
 ])
 def test_status_check_and_write_share_locked_transaction(monkeypatch, current, new, expected):
     queries = []
@@ -56,7 +56,7 @@ def test_status_check_and_write_share_locked_transaction(monkeypatch, current, n
 def test_unavailable_database_has_consistent_json_error(monkeypatch):
     def fail(): raise OperationalError('internal connection details')
     monkeypatch.setattr(main, 'connection', fail)
-    response = TestClient(main.app).get('/api/components')
+    response = TestClient(main.app, headers={"Authorization": "Bearer test-admin"}).get('/api/components')
     assert response.status_code == 503
     assert response.json() == {'detail': 'The database is temporarily unavailable.'}
 

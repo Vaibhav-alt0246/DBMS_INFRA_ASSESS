@@ -55,8 +55,8 @@ const converted = buildEditablePayload(
   ],
   { actual_cost: "12.50", reported_at: "2026-11-11T10:30" },
 );
-if (converted.actual_cost !== 12.5)
-  throw Error("Numeric fields must send numbers");
+if (converted.actual_cost !== "12.50")
+  throw Error("Decimal fields must retain exact decimal strings");
 if (converted.reported_at !== new Date("2026-11-11T10:30").toISOString())
   throw Error("Local timestamps must send ISO timestamps");
 if (

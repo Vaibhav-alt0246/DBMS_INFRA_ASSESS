@@ -1,0 +1,48 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: infraassess
+      POSTGRES_USER: infraassess
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+      - ../database:/docker-entrypoint-initdb.d/source:ro
+      - ./init-db.sh:/docker-entrypoint-initdb.d/00-init.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U infraassess -d infraassess']
+      interval: 10s
+      retries: 10
+  qdrant:
+    image: qdrant/qdrant:v1.12.6
+    volumes: [qdrant:/qdrant/storage]
+  api:
+    build: {context: .., dockerfile: deploy/Dockerfile.api}
+    environment: &app-env
+      PGHOST: postgres
+      PGDATABASE: infraassess
+      PGUSER: infraassess
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      QDRANT_URL: http://qdrant:6333
+      INFRAASSESS_CREDENTIALS: ${INFRAASSESS_CREDENTIALS:?Set hashed per-user credentials}
+      HF_HOME: /app/data/models
+    volumes: [models:/app/data/models]
+    depends_on:
+      postgres: {condition: service_healthy}
+      qdrant: {condition: service_started}
+  worker:
+    build: {context: .., dockerfile: deploy/Dockerfile.api}
+    command: [python, -m, scripts.worker]
+    environment: *app-env
+    volumes: [models:/app/data/models]
+    depends_on:
+      postgres: {condition: service_healthy}
+      qdrant: {condition: service_started}
+  web:
+    build: {context: .., dockerfile: deploy/Dockerfile.web}
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [api]
+volumes:
+  postgres:
+  qdrant:
+  models:

@@ -65,7 +65,7 @@ BEGIN
     VALUES (v_component, v_tech, clock_timestamp(), 40, 'CRITICAL', 'Duplicate alert test');
     SELECT count(*) INTO v_count FROM maintenance_alert WHERE component_id=v_component AND alert_type='CRITICAL_HEALTH' AND status IN ('OPEN','ACKNOWLEDGED');
     IF v_count <> 1 THEN RAISE EXCEPTION 'repeated low-health assessment created a duplicate active alert'; END IF;
-    UPDATE maintenance_alert SET status='RESOLVED' WHERE component_id=v_component AND alert_type='CRITICAL_HEALTH' AND status='OPEN';
+    UPDATE maintenance_alert SET status='RESOLVED', verification_notes='Operator checked asset' WHERE component_id=v_component AND alert_type='CRITICAL_HEALTH' AND status='OPEN';
     INSERT INTO assessment(component_id, technician_id, assessed_at, health_score, condition_status, findings)
     VALUES (v_component, v_tech, clock_timestamp(), 45, 'CRITICAL', 'Re-alert test') RETURNING assessment_id INTO v_second;
     IF v_second = v_first THEN RAISE EXCEPTION 'new assessment did not create a new alert after resolution'; END IF;

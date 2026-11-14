@@ -11,3 +11,6 @@ frontend/.env.local
 frontend/.test-build/
 frontend/test-results/
 frontend/playwright-report/
+
+.runtime/
+.audit_*.py

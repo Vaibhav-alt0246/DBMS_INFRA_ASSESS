@@ -1,5 +1,6 @@
 # InfraAssess web application
 
+> **2026-11-14 security/workflow update:** Configure per-user bearer credentials before using the console/API. Apply the versioned migration for existing databases, and run the scheduled worker for alerts/search. [Current operational instructions](OPERATIONS.md) supersede the earlier unauthenticated and per-search indexing examples below.
 For current cross-platform installation and measured validation, see [SETUP.md](SETUP.md) and [VERIFICATION.md](VERIFICATION.md).
 
 ## Architecture

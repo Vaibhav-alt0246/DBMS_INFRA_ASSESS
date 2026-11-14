@@ -1,5 +1,6 @@
 # Current development setup
 
+> **2026-11-14 security/workflow update:** Configure per-user bearer credentials before using the console/API. Apply the versioned migration for existing databases, and run the scheduled worker for alerts/search. [Current operational instructions](OPERATIONS.md) supersede the earlier unauthenticated and per-search indexing examples below.
 Use PostgreSQL 14+, Python 3.11+ and Node.js 20.9+. The frontend uses Next.js 16 and React 19. PostgreSQL owns operational data; local persistent Qdrant is a rebuildable index. Docker is not required.
 
 ## 1. Python and configuration
