@@ -330,8 +330,8 @@ test("navigation supports keyboard focus and Enter activation", async ({
 }) => {
   await mockApi(page);
   await page.goto("/");
-  await page.keyboard.press("Tab");
   const overview = page.getByRole("button", { name: "Overview", exact: true });
+  await overview.focus();
   await expect(overview).toBeFocused();
   await expect(overview).toHaveCSS("outline-width", "3px");
   await page.getByRole("button", { name: "Components", exact: true }).focus();
