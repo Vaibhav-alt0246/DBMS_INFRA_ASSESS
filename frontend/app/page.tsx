@@ -862,10 +862,22 @@ export default function Home() {
   const [page, setPage] = useState("overview");
   const [token, setToken] = useState("");
   const [connected, setConnected] = useState(false);
+  const [loginError, setLoginError] = useState("");
+  const [connecting, setConnecting] = useState(false);
   useEffect(() => { setConnected(!!sessionStorage.getItem("infraassess-token")); }, []);
   const resource = resources.find((r) => r.key === page) || (page.startsWith("reports/") ? {key:page,label:page.split("/")[1]+" report",fields:[]} : undefined);
-  if (!connected) return <main><form className="form" onSubmit={e => {e.preventDefault(); sessionStorage.setItem("infraassess-token",token); setConnected(true);}}>
-    <h1>InfraAssess sign in</h1><label>Access token<input type="password" required value={token} onChange={e=>setToken(e.target.value)} autoComplete="off" /></label><button>Connect</button>
+  if (!connected) return <main><form className="form" onSubmit={async e => {
+    e.preventDefault();
+    if (connecting) return;
+    setConnecting(true); setLoginError("");
+    try {
+      await request("/api/dashboard", {headers: {Authorization: `Bearer ${token}`}});
+      sessionStorage.setItem("infraassess-token", token);
+      setConnected(true);
+    } catch (error) { setLoginError((error as Error).message); }
+    finally { setConnecting(false); }
+  }}>
+    <h1>InfraAssess sign in</h1>{loginError && <div className="error" role="alert">{loginError}</div>}<label>Access token<input type="password" required value={token} onChange={e=>setToken(e.target.value)} autoComplete="off" /></label><button disabled={connecting}>{connecting ? "Connecting…" : "Connect"}</button>
   </form></main>;
   return (
     <main>

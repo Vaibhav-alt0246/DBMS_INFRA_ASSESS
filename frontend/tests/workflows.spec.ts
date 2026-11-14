@@ -403,3 +403,23 @@ test("overview refresh cancels an in-flight semantic search", async ({
     page.getByRole("button", { name: "Search ↗", exact: true }),
   ).toBeEnabled();
 });
+
+
+test("sign in rejects invalid credentials and accepts a corrected token", async ({ page }) => {
+  await page.route("**/api/**", async route => {
+    if (route.request().headers().authorization !== "Bearer valid-token") {
+      await route.fulfill({status: 401, json: {detail: "A valid bearer token is required."}});
+    } else {
+      await reply(route, route.request().url().includes("dashboard") ? {components: 0} : []);
+    }
+  });
+  await page.goto("/");
+  await page.getByLabel("Access token").fill("invalid-token");
+  await page.getByRole("button", {name: "Connect"}).click();
+  await expect(page.locator(".form [role=alert]")).toContainText("valid bearer token");
+  await expect(page.getByRole("heading", {name: "InfraAssess sign in"})).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("infraassess-token"))).toBeNull();
+  await page.getByLabel("Access token").fill("valid-token");
+  await page.getByRole("button", {name: "Connect"}).click();
+  await expect(page.getByRole("heading", {name: "Infrastructure overview"})).toBeVisible();
+});
